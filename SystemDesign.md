@@ -1,28 +1,70 @@
 # System Design
-# Market Data Consumtion
+# Market Data Consumption
 ```mermaid
 sequenceDiagram
-    participant BlazorSeverWebApp
-    participant MarketDataHubConnection
-    participant MarketDataHub 
+    participant DailyLoader
+    participant Orchestrator as DevOps/Orchestrator
     participant MarketDataPipeline
     participant RedisCache
     participant EventHub
+    participant MarketDataHub
+
+    %% --------- Nightly / Pre-market schedule ----------
+    Note over DailyLoader: 06:30 - Daily schedule (cron)
+    DailyLoader->>RedisCache: Store HistoricalDataSnapshot (yesterday’s data)
+
+    %% --------- Service start (before traders arrive) ----------
+    Note over Orchestrator: 07:00 - Start services
+    Orchestrator->>MarketDataPipeline: Start Host → ExecuteAsync()
 
     Note over MarketDataPipeline: ExecuteAsync() runs continuously
 
-    MarketDataPipeline->>RedisCache: ExecuteAsync → Fetch HistoricalData
-    RedisCache-->>MarketDataPipeline: HistoricalData
-    MarketDataPipeline-->>MarketDataHub: HistoricalDataReceived()
-    MarketDataHub-->>MarketDataHubConnection: HistoricalDataReceived()
-    MarketDataHubConnection-->>BlazorSeverWebApp: Render Historical Data
+    %% One-time historical push at startup (no clients yet → dropped)
+    MarketDataPipeline->>RedisCache: Fetch HistoricalDataSnapshot
+    RedisCache-->>MarketDataPipeline: HistoricalData[]
+    MarketDataPipeline-->>MarketDataHub: HistoricalDataReceived(HistoricalData[])
+    Note over MarketDataHub: No clients connected → message not delivered
 
+    %% Live stream starts regardless of clients
     loop Live Data Stream (inside ExecuteAsync)
         EventHub-->>MarketDataPipeline: LiveData Tick
-        MarketDataPipeline-->>MarketDataHub: LiveDataReceived()
-        MarketDataHub-->>MarketDataHubConnection: LiveDataReceived()
-        MarketDataHubConnection-->>BlazorSeverWebApp: Update Live Data
+        MarketDataPipeline-->>MarketDataHub: LiveDataReceived(LiveTick)
+        Note over MarketDataHub: Delivered only to currently connected clients
     end
+
+```
+
+# Trader
+```mermaid
+sequenceDiagram
+    participant Trader
+    participant BlazorServerWebApp
+    participant MarketDataHubConnection
+    participant MarketDataHub
+      
+
+   
+    %% Live stream starts regardless of clients
+    loop Live Data Stream (inside ExecuteAsync)
+        EventHub-->>MarketDataPipeline: LiveData Tick
+        MarketDataPipeline-->>MarketDataHub: LiveDataReceived(LiveTick)
+        Note over MarketDataHub: Delivered only to currently connected clients
+    end
+
+    %% --------- Traders arrive and connect ----------
+    Note over Trader: 08:00 - Open market data screen
+    Trader->>BlazorServerWebApp: Navigate to Market Data page
+    BlazorServerWebApp->>MarketDataHubConnection: Establish SignalR connection
+    MarketDataHubConnection->>MarketDataHub: OnConnected
+
+    %% Hub (not pipeline) fetches snapshot for the new client
+    MarketDataHub->>RedisCache: Fetch HistoricalDataSnapshot
+    RedisCache-->>MarketDataHub: HistoricalData[]
+    MarketDataHub-->>MarketDataHubConnection: HistoricalDataReceived(HistoricalData[])
+    MarketDataHubConnection-->>BlazorServerWebApp: Render snapshot (baseline)
+
+    %% Live ticks now also flow to this connected client
+    Note over MarketDataHub: Subsequent LiveDataReceived
 
 ```
 
