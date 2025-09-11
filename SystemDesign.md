@@ -1,4 +1,34 @@
 # System Design
+# Live Data Consumtion
+```mermaid
+sequenceDiagram
+    participant BlazorSeverWebApp
+    participant MarketDataHubConnection
+    participant MarketDataHub 
+    participant MarketDataPipeline
+    participant RedisCache
+    participant EventHub
+
+
+   Note over MarketDataPipeline: ExecuteAsync() runs continuously
+
+
+
+    MarketDataPipeline->>RedisCache: ExecuteAsync → Fetch HistoricalData
+    RedisCache-->>MarketDataPipeline: HistoricalData
+    MarketDataPipeline-->>MarketDataHub: HistoricalDataReceived()
+    MarketDataHub-->>MarketDataHubConnection: HistoricalDataReceived()
+    MarketDataHubConnection-->>BlazorSeverWebApp: Render Historical Data
+
+    loop Live Data Stream (inside ExecuteAsync)
+        EventHub-->>MarketDataPipeline: LiveData Tick
+        MarketDataPipeline-->>MarketDataHub: LiveDataReceived()
+        MarketDataHub-->>MarketDataHubConnection: LiveDataReceived()
+        MarketDataHubConnection-->>BlazorSeverWebApp: Update Live Data
+    end
+
+```
+
 # Live Data Ingestion
 ```mermaid
 sequenceDiagram
