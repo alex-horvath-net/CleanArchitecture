@@ -1,5 +1,5 @@
 # System Design
-# Live Data Consumtion
+# Market Data Consumtion
 ```mermaid
 sequenceDiagram
     participant BlazorSeverWebApp
@@ -9,10 +9,7 @@ sequenceDiagram
     participant RedisCache
     participant EventHub
 
-
-   Note over MarketDataPipeline: ExecuteAsync() runs continuously
-
-
+    Note over MarketDataPipeline: ExecuteAsync() runs continuously
 
     MarketDataPipeline->>RedisCache: ExecuteAsync → Fetch HistoricalData
     RedisCache-->>MarketDataPipeline: HistoricalData
