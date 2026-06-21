@@ -34,7 +34,8 @@
 //                        };
 
 //                        onMessage(price);
-//                    } catch { /* log? */ }
+//                    }
+//                    catch { /* log? */ }
 //                }
 //            });
 
